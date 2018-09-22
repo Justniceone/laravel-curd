@@ -1,0 +1,78 @@
+<?php
+
+namespace App\Http\Controllers\V1;
+
+use Illuminate\Http\Request;
+use App\Http\Models\{{modelName}};
+use App\Http\Controllers\Controller;
+use Validator;
+
+class {{modelName}}Controller extends Controller
+{
+    public function index(Request $request)
+    {
+        $limit = $request->input('limit') ?: 20;
+        $page = $request->input('page') ?: 1;
+        $title = $request->input('title');
+        $title and $where[] = ['title', 'like', '%' . $title . '%'] or $where = [];
+        $query = {{modelName}}::where($where);
+        ${{modelNameSingularLowerCase}} = $query->skip(($page - 1) * $limit)->take($limit)->latest()->get();
+        return $this->responseWithPagination(${{modelNameSingularLowerCase}}, $query->count(), ceil($query->count() / $limit), $page);
+    }
+
+    public function store(Request $request)
+    {
+        $v = Validator::make($request->all(),[
+              "schedule_kid" => 'required|integer',
+              "u_id" => 'required|integer',
+              "content" => 'required'
+        ]);
+        $v->sometimes('start_at', 'required|date|after:now', function($input) {
+            return $input->status == 2;
+        });
+        if ($v->fails()) return $this->responseWithValidationError($v);
+        $columns = (new Movie())->getColumns();
+        $data = $request->only($columns);
+        $data['created_at'] = $data['updated_at'] = time();
+        $result = Movie::insert($data);
+        if ($result === false) return $this->respondWithJson([], false, '系统错误，请重试');
+        return $this->respondWithJson([]);
+    }
+
+    public function show(Request $request)
+    {
+        $id = $request->input('id');
+        ${{modelNameSingularLowerCase}} = {{modelName}}::find($id) ?: [];
+        return $this->respondWithJson(${{modelNameSingularLowerCase}});
+    }
+
+    public function update(Request $request)
+    {
+        $v = Validator::make($request->all(),[
+              "id" => 'required|integer',
+              "schedule_kid" => 'required|integer',
+              "u_id" => 'required|integer',
+              "content" => 'required|',
+              'status' => 'required|integer|between:1,3',
+              'email' => 'unique:connection.users,email_address'
+        ]);
+        if ($v->fails()) return $this->responseWithValidationError($v);
+        $id = $request->input('id');
+        ${{modelNameSingularLowerCase}} = {{modelName}}::find($id);
+        if (!${{modelNameSingularLowerCase}}) return $this->respondWithJson([], false, '参数错误');
+        $columns = ${{modelNameSingularLowerCase}}->getColumns();
+        $data = $request->only($columns);
+        $data['updated_at'] = time();
+        if (${{modelNameSingularLowerCase}}->update() === false) return $this->respondWithJson([], false, '系统错误，请重试');
+        return $this->respondWithJson(${{modelNameSingularLowerCase}});
+    }
+
+    public function destroy(Request $request)
+    {
+        $id = $request->input('id');
+        ${{modelNameSingularLowerCase}} = {{modelName}}::find($id);
+        if (!${{modelNameSingularLowerCase}}) return $this->respondWithJson([], false, '参数错误');
+        if (${{modelNameSingularLowerCase}}->delete() === false) return $this->respondWithJson([], false, '系统错误，请重试');
+        return $this->respondWithJson([]);
+    }
+}
